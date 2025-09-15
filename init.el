@@ -1,191 +1,152 @@
-;; Make emacs startup faster
-(setq gc-cons-threshold 402653184
-      gc-cons-percentage 0.6)
- 
-(defvar startup/file-name-handler-alist file-name-handler-alist)
-(setq file-name-handler-alist nil)
- 
-(defun startup/revert-file-name-handler-alist ()
-  (setq file-name-handler-alist startup/file-name-handler-alist))
- 
-(defun startup/reset-gc ()
-  (setq gc-cons-threshold 16777216
-    gc-cons-percentage 0.1))
- 
-(add-hook 'emacs-startup-hook 'startup/revert-file-name-handler-alist)
-(add-hook 'emacs-startup-hook 'startup/reset-gc)
-;;
-;; hmmm
-(defvar bootstrap-version)
-(let ((bootstrap-file
-       (expand-file-name "straight/repos/straight.el/bootstrap.el" user-emacs-directory))
-      (bootstrap-version 5))
-  (unless (file-exists-p bootstrap-file)
-    (with-current-buffer
-        (url-retrieve-synchronously
-         "https://raw.githubusercontent.com/raxod502/straight.el/develop/install.el"
-         'silent 'inhibit-cookies)
-      (goto-char (point-max))
-      (eval-print-last-sexp)))
-  (load bootstrap-file nil 'nomessage))
-;; test
-;; aqui los pack a usar
-(straight-use-package 'use-package)
-(straight-use-package 'auctex)
-(straight-use-package 'ivy)
-(straight-use-package 'flymake)
-(straight-use-package 'synonyms)
-(straight-use-package 'yasnippet)
-(straight-use-package 'page-break-lines)
-(straight-use-package 'projectile)
-(straight-use-package 'dashboard)
-(straight-use-package 'gruvbox-theme)
-(straight-use-package 'spaceline)
-(straight-use-package 'powerline
- :ensure t
- :init
- (spaceline-spacemacs-theme))
-(straight-use-package 'undo-tree)
-(straight-use-package 'w3m)
-(straight-use-package 'magit)
-(straight-use-package 'company)
-(straight-use-package 'csharp-mode)
-(straight-use-package 'omnisharp)
-(straight-use-package 'emojify)
-(straight-use-package 'gnu-apl-mode)
+; use-package.el bootstrap sequence
+(require 'package)
+(add-to-list 'package-archives '("gnu"   . "https://elpa.gnu.org/packages/"))
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+(package-initialize)
+
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+(eval-and-compile
+  (setq use-package-always-ensure t
+        use-package-expand-minimally t))
+; use-package.el bootstrap sequence					;
+
+
+; Packages
+
+
+;; Customization
+(use-package dashboard
+  :config
+  (dashboard-setup-startup-hook)) ; Open automatically at start-up.
+(use-package gruvbox-theme
+  :config (load-theme 'gruvbox-dark-hard t))
+(use-package spaceline
+  :hook (after-init . powerline-reset)
+  :config (spaceline-spacemacs-theme))
+(use-package emojify
+  :hook (after-init . global-emojify-mode)) ; Open automatically at start-up.
+(use-package all-the-icons
+  :if (display-graphic-p))
+;; Customization end
+
+;; Nicies
+(use-package ivy)
+(use-package undo-tree)
+(use-package w3m)
+(use-package magit)
+(use-package elpher)
+(use-package pdf-tools)
+;; Nicies end
+
+;; Modes
+(use-package flymake)
+(use-package company)
+;; Modes end
+
+;; LSP
 (use-package lsp-mode
-  :straight t
-  :hook ((c-mode . lsp)
-	 (c++-mode . lsp))
-  :commands lsp
-  :config (setq lsp-keymap-prefix "s-q"))
-(use-package lsp-ivy
-  :straight t
-  :commands lsp-ivy-workspace-symbol)
-(use-package lsp-ui
-  :straight t)
-(use-package ccls
-  :after lsp-mode
-  :straight t
-  :config (setq ccls-executable "~/Documents/Cosas/ccls/Release/ccls"))
-(straight-use-package 'elpher)
-;; end
-;; custom
-(setq custom-file (concat user-emacs-directory "custom.el"))
-;; end custom
-;; \begin C
-; (setq lsp-clients-clangd-executable "/usr/bin/clangd")
-(defun modo-de-c ()
-  (c-set-style "ellemtel")
-  (electric-pair-local-mode 1)
-  (local-set-key (kbd "C-x C-a") (shell-command-to-string (concat "g++ -g -o prog " (buffer-name))))) 
-(add-hook 'c-mode-hook 'modo-de-c t)
-(add-hook 'c++-mode-hook 'modo-de-c t)
-;; \end C
-;; AQUÍ EMPIEZA C#
-(eval-after-load
-  'company
-  '(add-to-list 'company-backends #'company-omnisharp))
+  :init
+  ;; set prefix for lsp-command-keymap (few alternatives - "C-l", "C-c l")
+  (setq lsp-keymap-prefix "C-c l")
+  :hook (;; replace XXX-mode with concrete major-mode(e. g. python-mode)
+         (prog-mode . lsp)
+         ;; if you want which-key integration
+         (lsp-mode . lsp-enable-which-key-integration))
+  :commands lsp)
+(use-package lsp-ui :commands lsp-ui-mode)
+(use-package lsp-ivy :commands lsp-ivy-workspace-symbol)
+(use-package lsp-pyright
+  :ensure t
+  :custom (lsp-pyright-langserver-command "basedpyright") ;; or basedpyright
+  :hook (python-mode . (lambda ()
+                          (require 'lsp-pyright)
+                          (lsp))))  ; or lsp-deferred
+;; LSP End
 
-(defun my-csharp-mode-setup ()
-  (omnisharp-mode)
-  (company-mode)
-  (flycheck-mode)
 
-  (setq indent-tabs-mode nil)
-  (setq c-syntactic-indentation t)
-  (c-set-style "ellemtel")
-  (vsetq c-basic-offset 4)
-  (setq truncate-lines t)
-  (setq tab-width 4)
-  (setq evil-shift-width 4)
+; Packages End
 
-  ;csharp-mode README.md recommends this too
-  ;(electric-pair-mode 1)       ;; Emacs 24
-  (electric-pair-local-mode 1) ;; Emacs 25
 
-  (local-set-key (kbd "C-c C-c") 'omnisharp-start-omnisharp-server)
-  (local-set-key (kbd "C-c r r") 'omnisharp-run-code-action-refactoring)
-  (local-set-key (kbd "C-c C-a") 'recompile)
-  (local-set-key (kbd ".") 'omnisharp-add-dot-and-auto-complete))
+; Config Options
 
-(add-hook 'csharp-mode-hook 'my-csharp-mode-setup t)
-;; AQUÍ TERMINA C#
-(global-emojify-mode 1)
-(add-hook 'after-init-hook 'powerline-reset)
-(delete-selection-mode 1)
-(ivy-mode 1)
-(global-display-line-numbers-mode 1)
-(global-undo-tree-mode 1)
+
+;; Customization
+
+;;; Dashboard
 (setq inhibit-startup-message t)
+(setq dashboard-items '((recents . 5)))
+(setq dashboard-banner-logo-title "P a s s i f l o r a c e a e")
+(setq dashboard-startup-banner 'official)
+(setq dashboard-center-content t)
+(setq dashboard-vertically-center-content t)
+;;;; (setq dashboard-show-shortcuts nil)
+(setq dashboard-icon-type 'all-the-icons)
+(setq dashboard-set-heading-icons t)
+(setq dashboard-set-file-icons t)
+;;; Dashboard end
+
+(delete-selection-mode 1)
+(global-display-line-numbers-mode 1)
 (scroll-bar-mode -1)
-(load-theme 'gruvbox-dark-hard t)
-(setq synonyms-file        "~/.emacs.d/mthesaur.txt")
-(setq synonyms-cache-file  "~/.emacs.d/mthesaur.txt.cache")
-(require 'synonyms)
+(global-undo-tree-mode 1)
+(set-frame-font "IBM Plex Mono 11")
+(put 'upcase-region 'disabled nil)
+(put 'downcase-region 'disabled nil)
+;; Customization end
+
+;; Nicies
 (setq doc-view-resolution 500)
-;; dash board
-(dashboard-setup-startup-hook)
-  (setq dashboard-items '((recents . 5)))
-  (setq dashboard-banner-logo-title "T Z A N T Z A Q ' Ö R")
-  (setq dashboard-startup-banner "~/Pictures/naznaz.png")
-  (setq dashboard-center-content t)
-(setq dashboard-show-shortcuts nil)
-;; end
-; (set-default-font "IBM Plex Mono-11")
+
+;;; Ivy
+(ivy-mode 1)
 (setq ivy-use-virtual-buffers t)
 (setq ivy-count-format "(%d/%d) ")
+(setq enable-recursive-minibuffers t)
+;;; Ivy end
 
-;; Added by Package.el.  This must come before configurations of
-;; installed packages.  Don't delete this line.  If you don't want it,
-;; just comment it out by adding a semicolon to the start of the line.
-;; You may delete these explanatory comments.
-; (package-initialize)
+;; Nicies end
 
-(load "auctex.el" nil t t)
-;; (load "preview-latex.el" nil t t) 
-(setq TeX-auto-save t)
-(setq TeX-parse-self t)
-(setq TeX-save-query nil)
-(setq TeX-PDF-mode t)
-(setq-default TeX-master nil)
-(add-hook 'LaTeX-mode-hook 'visual-line-mode)
-(add-hook 'LaTeX-mode-hook 'flyspell-mode)
-(add-hook 'LaTeX-mode-hook 'LaTeX-math-mode)
-(add-hook 'LaTeX-mode-hook 'turn-on-reftex)
-(setq reftex-plug-into-AUCTeX t)
+;; Org-Mode
+(with-eval-after-load 'ox-latex
+   (add-to-list 'org-latex-classes
+                '("apa6p"
+                  "\\documentclass[a4paper, man]{apa6}"
+                  ("\\section{%s}" . "\\section*{%s}")
+                  ("\\subsection{%s}" . "\\subsection*{%s}")
+                  ("\\subsubsection{%s}" . "\\subsubsection*{%s}"))))
+;; Org-Mode end
 
-(require 'flymake)
 
-(defun flymake-get-tex-args (file-name)
-(list "pdflatex"
-(list "-file-line-error" "-draftmode" "-interaction=nonstopmode" file-name)))
+; Config Options end
 
-(add-hook 'LaTeX-mode-hook 'flymake-mode)
 
-; could be ispell as well, depending on your preferences
-(setq ispell-program-name "aspell") 
-; this can obviously be set to any language your spell-checking program supports
-(setq ispell-dictionary "spanish") 
-
-(add-hook 'LaTeX-mode-hook 'flyspell-mode)
-(add-hook 'LaTeX-mode-hook 'flyspell-buffer)
-
-(defun turn-on-outline-minor-mode ()
-(outline-minor-mode 1))
-
-(add-hook 'LaTeX-mode-hook 'turn-on-outline-minor-mode)
-(add-hook 'latex-mode-hook 'turn-on-outline-minor-mode)
-(setq outline-minor-mode-prefix "\C-c \C-o") ; Or something
-;; aqui van los keibinds texto
+; Keybinds
 (global-set-key (kbd "s-o") 'query-replace)
-;;; magit
 (global-set-key (kbd "s-r") 'magit-status)
-;;; org-mode
+
+;; Org-Mode
 (global-set-key (kbd "s-s") 'org-store-link)
 (global-set-key (kbd "s-a") 'org-agenda)
 (global-set-key (kbd "s-c") 'org-capture)
 (global-set-key (kbd "s-i") 'org-table-insert-row)
 (global-set-key (kbd "s-k") 'org-table-kill-row)
-;; aqui terminan los keibinds texto
-(put 'downcase-region 'disabled nil)
+;; Org-Mode end
+
+
+; Keybinds end
+
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages nil))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
